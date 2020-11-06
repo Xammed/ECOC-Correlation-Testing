@@ -7,7 +7,7 @@ Master_Tester_V2 Is most up to date, use on the commandline as follows:
   
   MODEL_DICTIONARY: 
   
- # Starting from 1
+ ** Starting from 1 **
 models_String = ["SVM", "DT", "LDA", "KNN",
           "LogisticRegression", "GaussianNB", "RandomForest"]
   
