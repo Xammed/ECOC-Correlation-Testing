@@ -14,13 +14,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 import time
 import random
-import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt1
 import matplotlib.pyplot as resplt
 import matplotlib.pyplot as corrplt
-import seaborn as sns
 import MatrixGeneration
 from sklearn.impute import SimpleImputer
+import sys, os
 
 
 
@@ -798,362 +796,6 @@ datasets_Reference = [
 #Make sure model selection is native, edit it here.
 #Iterate data by making data objects, indexing them, then iterating.
 
-def getECOCBaselineAccuracies(dataset, listOfCBs, labelCol, beginData, endData, classifier):
-    ts = time.time()
-    RunLabel = "Base_"
-    dataset_str_array = dataset.split("/")
-    dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
-    print("RUNNING BASELINE", models_String[classifier-1])
-    dm = DataManager()
-    trainer = Trainer()
-    codebookNum = 1
-    models = ["SVM", "DT", "LDA", "KNN"] # Used for printing
-    endResultAccuracies = []  # Holds lists of all accuracies for each codebook
-
-    for codebook in listOfCBs:
-        # Lists to hold each iteration's accuracy for each model
-        accuracies = []
-        print("\tCodebook Number:", codebookNum)
-
-        # Get and preprocess the data
-        dataraw, labels = dm.getData(dataset, labelCol, beginData, endData)
-
-        indicesToRemove, dataToRemove, labelsToRemove = dm.getSmallClasses(dataraw, labels)
-        data, labels = dm.removeSmallClasses(dataraw, labels, indicesToRemove)
-
-        data = dm.preprocessData(data)
-
-
-        # Give each label a codeword then split the data
-        updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
-        x_train, x_test, y_train, y_test = train_test_split(data, updatedLabels, test_size=.20, random_state=12)
-
-        CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
-        matrices = []
-        matrixholder = []
-        folds = []
-        counter = 0
-        auxilliaryMatrixTests = []
-        binaryClassifiers = dm.binarizeLabels(labelDictionary)
-        foldedPredictions = []
-        individualaccuracies_holder = []
-        #print(x_train, y_train)
-        for trainingset, label, predset, testset in zip(trainingsets, labels, testingsets, validsets):
-            #print(t, l)
-            # Create lists of what each class's new label should be based off of the
-            # columns of the codewords
-
-            # Since splitting happens after the assigning/updating of codwords, we need to get the
-            # original labels back so that makeTrainingLabels works properly (This can be improved upon)
-
-            originalTrainLabels = dm.originalY(label, labelDictionary)
-
-            # Train the models
-            trainingLabels = dm.makeTrainingLabels(binaryClassifiers, originalTrainLabels)
-
-
-            # trainedModels = trainer.trainClassifiers(x_train, trainingLabels, i)
-
-            folds.append(trainer.trainClassifiers(trainingset, trainingLabels, classifier))
-            predictionsMixed, literalsMixed = trainer.getPredictions(predset, folds[counter])
-            cMatrix = trainer.correlationMatrix(literalsMixed)
-            matrixholder.append(cMatrix)
-            auxilliaryMatrixTests.append(cMatrix)
-            
-
-
-            individualaccuracies = trainer.testClassifiers(folds[counter], predset, testset)
-            individualaccuracies_holder.append(np.average(individualaccuracies))
-
-            
-            updatedPredictionsBase, minHams = trainer.hammingDistanceUpdater(codebook, predictionsMixed)
-            foldedPredictions.append(updatedPredictionsBase)
-            accuracyBase = trainer.compare(updatedPredictionsBase, testset)
-            print("\t\tECOC Acuracy for fold " + str(counter+1) + ":", accuracyBase)
-            print("\t\tAverage Individual Accuracy for fold " + str(counter+1) + ":", individualaccuracies_holder[counter])
-            print("\t\tCorrelation: ", CV.averageTotal(cMatrix))
-            print("\t\tStdDev Corr: ", CV.matrixStats(cMatrix))
-            accuracies.append(accuracyBase)
-            counter += 1
-
-        ecoc_average = np.average(accuracies)
-        
-        print("Average Individual Accurcy: ", np.average(individualaccuracies_holder))
-        print("Average ECOC Accuracy: ", np.average(accuracies))
-        print("Runtime", time.time() - ts)
-
-        '''
-        count = 0
-        for amat in auxilliaryMatrixTests:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(amat, annot=True, ax=ax)
-            plt.suptitle("Fold" + str(count+1), fontsize=20)
-            #plt.show()
-            count += 1
-            #plt.savefig("Fold" + str(count) + ".png")
-        '''
-        matrices.append(CV.averageMatrices(matrixholder))
-
-        for m in matrices:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(m, annot=True, ax=ax)
-            plt.suptitle("Baseline Averaged " + dataset_str_name, fontsize=15)
-            plt.suptitle("Baseline " + dataset_str_name + models_String[classifier-1], fontsize=15)
-            plt.savefig(RunLabel + dataset_str_name + models_String[classifier-1] + ".png")
-            
-        
-        corr_average = CV.averageTotal(matrices[0])
-        print("CV Average Correlation: ", CV.averageTotal(matrices[0]))
-        print("CV Average Corr Std", CV.matrixStats(matrices[0]))
-        codebookNum += 1
-    return ecoc_average, corr_average
-
-def getECOCBaselineAccuracies_VD(dataset, listOfCBs, labelCol, beginData, endData, classifier, p):
-    
-    RunLabel = "VD_" + "p_"
-    dataset_str_array = dataset.split("/")
-    dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
-    print("RUNNING VARIED DATA", models_String[classifier-1])
-    dm = DataManager()
-    trainer = Trainer()
-    codebookNum = 1
-    models = ["SVM", "DT", "LDA", "KNN"] # Used for printing
-    endResultAccuracies = []  # Holds lists of all accuracies for each codebook
-
-    for codebook in listOfCBs:
-        # Lists to hold each iteration's accuracy for each model
-        accuracies = []
-        print("\tCodebook Number:", codebookNum)
-
-        # Get and preprocess the data
-        dataraw, labels = dm.getData(dataset, labelCol, beginData, endData)
-
-        indicesToRemove, dataToRemove, labelsToRemove = dm.getSmallClasses(dataraw, labels)
-        data, labels = dm.removeSmallClasses(dataraw, labels, indicesToRemove)
-
-        data = dm.preprocessData(data)
-
-
-        # Give each label a codeword then split the data
-        updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
-        x_train, x_test, y_train, y_test = train_test_split(data, updatedLabels, test_size=.20, random_state=12)
-
-        CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
-        matrices = []
-        matrixholder = []
-        folds = []
-        counter = 0
-        auxilliaryMatrixTests = []
-        binaryClassifiers = dm.binarizeLabels(labelDictionary)
-        foldedPredictions = []
-        individualaccuracies_holder = []
-        #print(x_train, y_train)
-
-
-        ts = time.time()
-        for trainingset, label, predset, testset in zip(trainingsets, labels, testingsets, validsets):
-            #print(t, l)
-            # Create lists of what each class's new label should be based off of the
-            # columns of the codewords
-
-            # Since splitting happens after the assigning/updating of codwords, we need to get the
-            # original labels back so that makeTrainingLabels works properly (This can be improved upon)
-
-            originalTrainLabels = dm.originalY(label, labelDictionary)
-
-            # Train the models
-            trainingLabels = dm.makeTrainingLabels(binaryClassifiers, originalTrainLabels)
-
-
-            # trainedModels = trainer.trainClassifiers(x_train, trainingLabels, i)
-
-            folds.append(trainer.trainClassifiers_VD(trainingset, trainingLabels, classifier, p))
-            predictionsMixed, literalsMixed = trainer.getPredictions(predset, folds[counter])
-            cMatrix = trainer.correlationMatrix(literalsMixed)
-            matrixholder.append(cMatrix)
-            auxilliaryMatrixTests.append(cMatrix)
-            
-
-
-            individualaccuracies = trainer.testClassifiers(folds[counter], predset, testset)
-            individualaccuracies_holder.append(np.average(individualaccuracies))
-
-            
-            updatedPredictionsBase, minHams = trainer.hammingDistanceUpdater(codebook, predictionsMixed)
-            foldedPredictions.append(updatedPredictionsBase)
-            accuracyBase = trainer.compare(updatedPredictionsBase, testset)
-            print("\t\tECOC Acuracy for fold " + str(counter+1) + ":", accuracyBase)
-            print("\t\tAverage Individual Accuracy for fold " + str(counter+1) + ":", individualaccuracies_holder[counter])
-            print("\t\tCorrelation: ", CV.averageTotal(cMatrix))
-            print("\t\tStdDev Corr: ", CV.matrixStats(cMatrix))
-            accuracies.append(accuracyBase)
-            counter += 1
-        run_time = time.time() - ts
-        ecoc_average = np.average(accuracies)
-        print("Average Individual Accurcy: ", np.average(individualaccuracies_holder))
-        print("Average ECOC Accuracy: ", np.average(accuracies))
-        print("Training Time", run_time)
-
-        '''
-        count = 0
-        for amat in auxilliaryMatrixTests:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(amat, annot=True, ax=ax)
-            plt.suptitle("Fold" + str(count+1), fontsize=20)
-            #plt.show()
-            count += 1
-            #plt.savefig("Fold" + str(count) + ".png")
-        '''
-        matrices.append(CV.averageMatrices(matrixholder))
-        '''
-        for m in matrices:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(m, annot=True, ax=ax)
-            plt.suptitle("Varied Data Averaged " + dataset_str_name, fontsize=15)
-            plt.suptitle("Varied Data Averaged " + dataset_str_name + models_String[classifier-1], fontsize=15)
-            plt.savefig(RunLabel + dataset_str_name + models_String[classifier-1] + ".png")
-        '''
-            
-        corr_average = CV.averageTotal(matrices[0])
-        print("CV Average Correlation: ", CV.averageTotal(matrices[0]))
-        print("CV Average Corr Std", CV.matrixStats(matrices[0]))
-        codebookNum += 1
-    return ecoc_average, corr_average, run_time
-
-def getECOCBaselineAccuracies_VC(dataset, listOfCBs, labelCol, beginData, endData, modelChoices):
-    ts = time.time()
-    RunLabel = "VC_"
-    dataset_str_array = dataset.split("/")
-    dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
-    print("RUNNING VARIED CLASSIFIER", modelChoices)
-    dm = DataManager()
-    trainer = Trainer()
-    codebookNum = 1
-    models = ["SVM", "DT", "LDA", "KNN"] # Used for printing
-    endResultAccuracies = []  # Holds lists of all accuracies for each codebook
-
-    for codebook in listOfCBs:
-        # Lists to hold each iteration's accuracy for each model
-        accuracies = []
-        print("\tCodebook Number:", codebookNum)
-        modelArray = []
-        random.seed(1)
-        for i in range(len(codebook[0])):
-            modelArray.append(random.choice(modelChoices))
-
-        # Get and preprocess the data
-        dataraw, labels = dm.getData(dataset, labelCol, beginData, endData)
-
-        indicesToRemove, dataToRemove, labelsToRemove = dm.getSmallClasses(dataraw, labels)
-        data, labels = dm.removeSmallClasses(dataraw, labels, indicesToRemove)
-
-        data = dm.preprocessData(data)
-
-
-        # Give each label a codeword then split the data
-        updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
-        x_train, x_test, y_train, y_test = train_test_split(data, updatedLabels, test_size=.20, random_state=12)
-
-        CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
-        matrices = []
-        matrixholder = []
-        folds = []
-        counter = 0
-        auxilliaryMatrixTests = []
-        binaryClassifiers = dm.binarizeLabels(labelDictionary)
-        foldedPredictions = []
-        individualaccuracies_holder = []
-        #print(x_train, y_train)
-        for trainingset, label, predset, testset in zip(trainingsets, labels, testingsets, validsets):
-            #print(t, l)
-            # Create lists of what each class's new label should be based off of the
-            # columns of the codewords
-
-            # Since splitting happens after the assigning/updating of codwords, we need to get the
-            # original labels back so that makeTrainingLabels works properly (This can be improved upon)
-
-            originalTrainLabels = dm.originalY(label, labelDictionary)
-
-            # Train the models
-            trainingLabels = dm.makeTrainingLabels(binaryClassifiers, originalTrainLabels)
-
-
-            # trainedModels = trainer.trainClassifiers(x_train, trainingLabels, i)
-
-            folds.append(trainer.trainClassifiersMultiple(trainingset, trainingLabels, modelArray))
-            predictionsMixed, literalsMixed = trainer.getPredictions(predset, folds[counter])
-            cMatrix = trainer.correlationMatrix(literalsMixed)
-            matrixholder.append(cMatrix)
-            auxilliaryMatrixTests.append(cMatrix)
-            
-
-            individualaccuracies = trainer.testClassifiers(folds[counter], predset, testset)
-            individualaccuracies_holder.append(np.average(individualaccuracies))
-
-            
-
-            updatedPredictionsBase, minHams = trainer.hammingDistanceUpdater(codebook, predictionsMixed)
-            foldedPredictions.append(updatedPredictionsBase)
-            accuracyBase = trainer.compare(updatedPredictionsBase, testset)
-            print("\t\tECOC Acuracy for fold " + str(counter+1) + ":", accuracyBase)
-            print("\t\tAverage Individual Accuracy for fold " + str(counter+1) + ":", individualaccuracies_holder[counter])
-            print("\t\tCorrelation: ", CV.averageTotal(cMatrix))
-            print("\t\tStdDev Corr: ", CV.matrixStats(cMatrix))
-            accuracies.append(accuracyBase)
-
-            counter += 1
-
-        ecoc_average = np.average(accuracies)
-        print("Average Individual Accurcy: ", np.average(individualaccuracies_holder))
-        print("Average ECOC Accuracy: ", np.average(accuracies))
-        print("Runtime", time.time() - ts)
-        '''
-        count = 0
-        for amat in auxilliaryMatrixTests:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(amat, annot=True, ax=ax)
-            plt.suptitle("Fold" + str(count+1), fontsize=20)
-            #plt.show()
-            count += 1
-            #plt.savefig("Fold" + str(count) + ".png")
-        '''
-        matrices.append(CV.averageMatrices(matrixholder))
-
-        for m in matrices:
-            plt.clf()
-            plt.figure(figsize=(20, 15))
-            plt.set_cmap('BrBG_r')
-            ax = plt.subplot()
-            sns.heatmap(m, annot=True, ax=ax)
-            plt.suptitle("Varied Classifier Averaged " + dataset_str_name, fontsize=15)
-            plt.suptitle("Varied Classifier Averaged " + dataset_str_name + str(modelChoices), fontsize=15)
-            plt.savefig(RunLabel + dataset_str_name + ".png")
-            
-        corr_average = CV.averageTotal(matrices[0])
-        print("CV Average Correlation: ", CV.averageTotal(matrices[0]))
-        print("CV Average Corr Std", CV.matrixStats(matrices[0]))
-
-        codebookNum += 1
-    return ecoc_average, corr_average
-
 def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, endData, modelChoices, p):
     ts = time.time()
     RunLabel = "VC_VD_"
@@ -1164,7 +806,6 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
     trainer = Trainer()
     codebookNum = 1
     models = ["SVM", "DT", "LDA", "KNN"] # Used for printing
-    endResultAccuracies = []  # Holds lists of all accuracies for each codebook
 
     for codebook in listOfCBs:
         # Lists to hold each iteration's accuracy for each model
@@ -1186,7 +827,6 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
 
         # Give each label a codeword then split the data
         updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
-        x_train, x_test, y_train, y_test = train_test_split(data, updatedLabels, test_size=.20, random_state=12)
 
         CV = CrossValidator(data, updatedLabels)
         trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
@@ -1274,129 +914,21 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
         codebookNum += 1
     return ecoc_average, corr_average
 
-def getECOCBaselineAccuracies_VD_const_seed(dataset, listOfCBs, labelCol, beginData, endData, classifier, p, seed, accuracyarray):
-    ts = time.time()
-    RunLabel = "VD_"
-    dataset_str_array = dataset.split("/")
-    dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
-    print("RUNNING VARIED DATA CONSTANT SEED " + str(seed), models_String[classifier-1])
-    dm = DataManager()
-    trainer = Trainer()
-    codebookNum = 1
-    models = ["SVM", "DT", "LDA", "KNN"] # Used for printing
-    endResultAccuracies = []  # Holds lists of all accuracies for each codebook
 
-    for codebook in listOfCBs:
-        # Lists to hold each iteration's accuracy for each model
-        accuracies = []
-        print("\tCodebook Number:", codebookNum)
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
 
-        # Get and preprocess the data
-        dataraw, labels = dm.getData(dataset, labelCol, beginData, endData)
-
-        indicesToRemove, dataToRemove, labelsToRemove = dm.getSmallClasses(dataraw, labels)
-        data, labels = dm.removeSmallClasses(dataraw, labels, indicesToRemove)
-
-        data = dm.preprocessData(data)
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
 
-        # Give each label a codeword then split the data
-        updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
-        x_train, x_test, y_train, y_test = train_test_split(data, updatedLabels, test_size=.20, random_state=12)
-
-        CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
-        matrices = []
-        matrixholder = []
-        folds = []
-        counter = 0
-        auxilliaryMatrixTests = []
-        binaryClassifiers = dm.binarizeLabels(labelDictionary)
-        foldedPredictions = []
-        individualaccuracies_holder = []
-        #print(x_train, y_train)
-        for trainingset, label, predset, testset in zip(trainingsets, labels, testingsets, validsets):
-            #print(t, l)
-            # Create lists of what each class's new label should be based off of the
-            # columns of the codewords
-
-            # Since splitting happens after the assigning/updating of codwords, we need to get the
-            # original labels back so that makeTrainingLabels works properly (This can be improved upon)
-
-            originalTrainLabels = dm.originalY(label, labelDictionary)
-
-            # Train the models
-            trainingLabels = dm.makeTrainingLabels(binaryClassifiers, originalTrainLabels)
-
-
-            # trainedModels = trainer.trainClassifiers(x_train, trainingLabels, i)
-
-            folds.append(trainer.trainClassifiers_VD_chosen_seed(trainingset, trainingLabels, classifier, p, seed))
-            predictionsMixed, literalsMixed = trainer.getPredictions(predset, folds[counter])
-            cMatrix = trainer.correlationMatrix(literalsMixed)
-            matrixholder.append(cMatrix)
-            auxilliaryMatrixTests.append(cMatrix)
-            
-
-
-            individualaccuracies = trainer.testClassifiers(folds[counter], predset, testset)
-            individualaccuracies_holder.append(np.average(individualaccuracies))
-
-            
-            updatedPredictionsBase, minHams = trainer.hammingDistanceUpdater(codebook, predictionsMixed)
-            foldedPredictions.append(updatedPredictionsBase)
-            accuracyBase = trainer.compare(updatedPredictionsBase, testset)
-            print("\t\tECOC Acuracy for fold " + str(counter+1) + ":", accuracyBase)
-            print("\t\tAverage Individual Accuracy for fold " + str(counter+1) + ":", individualaccuracies_holder[counter])
-            
-            accuracies.append(accuracyBase)
-            counter += 1
-
-
-        print("Average Individual Accurcy: ", np.average(individualaccuracies_holder))
-        print("Average ECOC Accuracy: ", np.average(accuracies))
-        accuracyarray[0].append(np.average(individualaccuracies_holder))
-        accuracyarray[1].append(np.average(accuracies))
-        print("Runtime", time.time() - ts)
-
-
-
-        
-        codebookNum += 1
-    return 0
-
-
-
-
-
-{  # 8
-        "name": "Usps",
-        "link": "usps.data",
-        "labelCol": 1,
-        "beginData": 1,
-        "endData": 257,
-        "numClasses": 10
-    },
-{   # 0
-    "name": "Pendigits [Pen-Based Recognition of Handwritten Digits]",
-    "link": "pendigits.csv",
-    "labelCol": -1,
-    "beginData": 3,
-    "endData": 13,
-    "numClasses": 10
-    },
-{   # 1
-        "name": "Vowel [Connectionist Bench (Vowel Recognition - Deterding Data)]",
-        "link": "vowel-context.data",
-        "labelCol": -1,
-        "beginData": 9,
-        "endData": 13,
-        "numClasses": 11
-    },
-
-
-
-def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing):
+def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, outfile):
+    result_log = open(outfile, "w")
+    corrplt = resplt.subplot()
+    if(not printing):
+        blockPrint()
     dataset_str_array = datasetdir.split("/")
     dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
     codebook = MatrixGeneration.GenerateMatrix(numclasses, numclasses)
@@ -1408,25 +940,23 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
 
     for model in model_array:
         accuracy_array.append([])
-        model_array.append([])
+        correlation_array.append([])
+    print("starting run")
 
-    testerArray = [[],[],[],[],[]]
-    testerArrayCorr = [[],[],[],[]]
     pdomain = []
-
     p = 1
     while p >= 0.2:
         print("DATA PER CLASSIFIER " + str(p))
-        pdomain.append(p)
+        pdomain.append(round(p, 2))
         counter = 0
         for model in model_array:
-            temp = getECOCBaselineAccuracies_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model, p)
-            accuracy_array[counter].append(temp[0])
-            correlation_array[counter].append(temp[1])
+            temp = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, [model], p)
+            accuracy_array[counter].append(round(temp[0], 3))
+            correlation_array[counter].append(round(temp[1], 3))
             counter += 1
-        mixed = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model, p)
-        accuracy_array[len(accuracy_array)-1].append(mixed[0])
-        correlation_array[len(correlation_array)-1].append(mixed[1])
+        mixed = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model_array, p)
+        accuracy_array[len(accuracy_array)-1].append(round(mixed[0], 3))
+        correlation_array[len(correlation_array)-1].append(round(mixed[1], 3))
         p = p - 0.1
 
         
@@ -1440,36 +970,50 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
         print("Correlation:")
         print("P     DT     KNN    RF   ALL")
         print(str(pdomain[i]) + ":    " + str(testerArrayCorr[0][i]) + "  " +str(testerArrayCorr[1][i]) + "  " +str(testerArrayCorr[2][i])+ "  " +str(testerArrayCorr[3][i]))
+    
     '''
-    #for i in range(len(pdomain)):
-     #   testerArray[4].append(np.average(testerArray[0][i],testerArray[1][i],testerArray[2][i],testerArray[3][i]))
 
-    #result_log = open(dataset_str_name + "_" + "Results" + ".txt", '-w')
-    #result_log.write(accuracy_array)
-    #result_log.write(correlation_array)
+    labels = "P     " 
+    accuracy_results = ""
+    correlation_results = ""
 
+    for j in range(len(model_array)):
+        labels += models_String[model_array[j]-1] + "     "
+    labels += "ALL\n"
 
+    for i in range(len(pdomain)):
+        accuracy_results += str(pdomain[i]) + "     "
+        for j in range(len(model_array)+1):
+            accuracy_results += str(accuracy_array[j][i]) + "     "
+        accuracy_results += "\n"
+    for i in range(len(pdomain)):
+        correlation_results += str(pdomain[i]) + "     "
+        for j in range(len(model_array)+1):
+            correlation_results += str(correlation_array[j][i]) + "     "
+        correlation_results += "\n"
 
+    result_log.write(labels + "Accuracies\n" + accuracy_results + "Correlation\n" + correlation_results)
+        
     if (graphing):
         line_references = ['-', ':', '-.', '--']
-        counter = 0
-        for model, accs, corr in zip(model_array, accuracy_array[0:len(accuracy_array)-1], correlation_array[0:len(correlation_array)-1]):
-            resplt.suptitle(dataset_str_name + " Varied Data Accuracies")
-            resplt.xlabel("Percent of Data Per Learner")
-            resplt.ylabel("Accuracy")
-            resplt.plot(pdomain, accuracy_array[counter], line_references[counter], label= models_String[model])
-            
-            corrplt.suptitle(dataset_str_name + " Pendigits Varied Data Correlation")
-            corrplt.xlabel("Percent of Data Per Learner")
-            corrplt.ylabel("Correlation")
-            corrplt.plot(pdomain, correlation_array[counter], line_references[counter], label= models_String[model])
+        resplt.suptitle(dataset_str_name + " Varied Data Accuracies")
+        resplt.xlabel("Percent of Data Per Learner")
+        resplt.ylabel("Accuracy")
+        corrplt.suptitle(dataset_str_name + " Varied Data Correlation")
+        corrplt.xlabel("Percent of Data Per Learner")
+        corrplt.ylabel("Correlation")
+        for i in range(len(model_array)):
+            resplt.plot(pdomain, accuracy_array[i], line_references[i], label= models_String[model_array[i]-1])
+            corrplt.plot(pdomain, correlation_array[i], line_references[i], label= models_String[model_array[i]-1])
 
         resplt.plot(pdomain, accuracy_array[len(accuracy_array)-1], line_references[len(line_references)-1], label = "All")
         resplt.legend(loc= "lower right")
         resplt.show()
+        resplt.clf()
         corrplt.plot(pdomain, correlation_array[len(correlation_array)-1], line_references[len(line_references)-1], label = "All")
         corrplt.legend(loc= "lower right")
         corrplt.show()
-    
+    result_log.close()
+    return result_log
 
-run_test("/media/msaroshkhan/OS_Install/Users/M Sarosh Khan/PycharmProjects/CodebookTesting/datasets/pendigits.csv", -1, 0, 12, 10, [2, 4, 7], True)
+run_test("ECOC-Correlation-Testing-main\pendigits.csv", -1, 0, 12, 10, [2, 4, 7], False, True, "output.txt")
