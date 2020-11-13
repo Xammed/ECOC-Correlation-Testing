@@ -879,6 +879,7 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
             counter += 1
 
         ecoc_average = np.average(accuracies)
+        ecoc_std = np.std(accuracies)
         print("Average Individual Accurcy: ", np.average(individualaccuracies_holder))
         print("Average ECOC Accuracy: ", np.average(accuracies))
         print("Runtime", time.time() - ts)
@@ -908,11 +909,14 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
         '''
             
         corr_average = CV.averageTotal(matrices[0])
+        corr_std = CV.matrixStats(matrices[0])
+        ecoc_data = [round(ecoc_average, 3), round(ecoc_std, 3)]
+        corr_data = [round(corr_average, 3), round(corr_std, 3)]
         print("CV Average Correlation: ", CV.averageTotal(matrices[0]))
         print("CV Average Corr Std", CV.matrixStats(matrices[0]))
 
         codebookNum += 1
-    return ecoc_average, corr_average
+    return ecoc_data, corr_data
 
 
 # Disable
@@ -944,34 +948,20 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
     print("starting run")
 
     pdomain = []
-    p = 1
+    p = 1.0
     while p >= 0.2:
         print("DATA PER CLASSIFIER " + str(p))
         pdomain.append(round(p, 2))
         counter = 0
         for model in model_array:
             temp = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, [model], p)
-            accuracy_array[counter].append(round(temp[0], 3))
-            correlation_array[counter].append(round(temp[1], 3))
+            accuracy_array[counter].append(temp[0])
+            correlation_array[counter].append(temp[1])
             counter += 1
         mixed = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model_array, p)
-        accuracy_array[len(accuracy_array)-1].append(round(mixed[0], 3))
-        correlation_array[len(correlation_array)-1].append(round(mixed[1], 3))
+        accuracy_array[len(accuracy_array)-1].append(mixed[0])
+        correlation_array[len(correlation_array)-1].append(mixed[1])
         p = p - 0.1
-
-        
-
-
-    ''' WRITE TO FILE INSTEAD
-    for i in range(len(pdomain)):
-        print("\n\nAccuracies:")
-        print("P     DT     KNN    RF   ALL")
-        print(str(pdomain[i]) + ":    " + str(testerArray[0][i]) + "  " + str(testerArray[1][i]) + "  " +str(testerArray[2][i]) + "  " +str(testerArray[3][i]))
-        print("Correlation:")
-        print("P     DT     KNN    RF   ALL")
-        print(str(pdomain[i]) + ":    " + str(testerArrayCorr[0][i]) + "  " +str(testerArrayCorr[1][i]) + "  " +str(testerArrayCorr[2][i])+ "  " +str(testerArrayCorr[3][i]))
-    
-    '''
 
     labels = "P     " 
     accuracy_results = ""
@@ -995,6 +985,7 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
     result_log.write(labels + "Accuracies\n" + accuracy_results + "Correlation\n" + correlation_results)
         
     if (graphing):
+        corrplt = resplt.subplot()
         line_references = ['-', ':', '-.', '--']
         resplt.suptitle(dataset_str_name + " Varied Data Accuracies")
         resplt.xlabel("Percent of Data Per Learner")
@@ -1016,4 +1007,28 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
     result_log.close()
     return result_log
 
-run_test("ECOC-Correlation-Testing-main\pendigits.csv", -1, 0, 12, 10, [2, 4, 7], False, True, "output.txt")
+def main():
+    print("COMMAND LINE WORKS??")
+    dataset = sys.argv[1]
+    labelscol = int(sys.argv[2])
+    databegin = int(sys.argv[3])
+    dataend = int(sys.argv[4])
+    numclasses = int(sys.argv[5])
+    models_string = sys.argv[6]
+    graphing = sys.argv[7]
+    printing = sys.argv[8]
+    fname = sys.argv[9]
+    models = []
+    for m in models_string:
+        models.append(int(m))
+    log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, fname)
+    return log
+
+
+#run_test("datasets/pendigits.csv", -1, 0, 12, 10, [2, 4, 7], False, True, "pendigitsData.txt")
+
+main() 
+
+'''
+python3 MasterTester_V2.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 "./penDigits_cmd.txt"
+'''
