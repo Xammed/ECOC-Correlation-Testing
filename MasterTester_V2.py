@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 import time
 import random
-import matplotlib.pyplot as resplt
+import matplotlib.pyplot as resplt 
 import matplotlib.pyplot as corrplt
 import MatrixGeneration
 from sklearn.impute import SimpleImputer
@@ -984,48 +984,74 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
 
     result_log.write(labels + "Accuracies\n" + accuracy_results + "Correlation\n" + correlation_results)
         
+    print(accuracy_array)
+    print(correlation_array)
     if (graphing):
-        corrplt = resplt.subplot()
+        accplt = [[]]
+        corrplt = [[]]
+        for model in model_array:
+            accplt.append([])
+            corrplt.append([])
+        counter = 0
+        for acc, corr in zip(accuracy_array, correlation_array):
+            for modelacc, modelcorr in zip(acc, corr):
+                accplt[counter].append(modelacc[0])
+                corrplt[counter].append(modelcorr[0])
+            counter+=1
         line_references = ['-', ':', '-.', '--']
         resplt.suptitle(dataset_str_name + " Varied Data Accuracies")
         resplt.xlabel("Percent of Data Per Learner")
         resplt.ylabel("Accuracy")
-        corrplt.suptitle(dataset_str_name + " Varied Data Correlation")
-        corrplt.xlabel("Percent of Data Per Learner")
-        corrplt.ylabel("Correlation")
+        
         for i in range(len(model_array)):
-            resplt.plot(pdomain, accuracy_array[i], line_references[i], label= models_String[model_array[i]-1])
-            corrplt.plot(pdomain, correlation_array[i], line_references[i], label= models_String[model_array[i]-1])
+            resplt.plot(pdomain, accplt[i], line_references[i], label= models_String[model_array[i]-1])
 
-        resplt.plot(pdomain, accuracy_array[len(accuracy_array)-1], line_references[len(line_references)-1], label = "All")
+        resplt.plot(pdomain, accplt[len(accplt)-1], line_references[len(line_references)-1], label = "All")
         resplt.legend(loc= "lower right")
-        resplt.show()
+        resplt.savefig(dataset_str_name + " Varied Data Accuracies.png")
+
         resplt.clf()
-        corrplt.plot(pdomain, correlation_array[len(correlation_array)-1], line_references[len(line_references)-1], label = "All")
-        corrplt.legend(loc= "lower right")
-        corrplt.show()
+
+        resplt.suptitle(dataset_str_name + " Varied Data Correlation")
+        resplt.xlabel("Percent of Data Per Learner")
+        resplt.ylabel("Correlation")
+        for i in range(len(model_array)):
+            resplt.plot(pdomain, corrplt[i], line_references[i], label= models_String[model_array[i]-1])
+        
+        resplt.plot(pdomain, corrplt[len(corrplt)-1], line_references[len(line_references)-1], label = "All")
+        resplt.legend(loc= "lower right")
+        resplt.savefig(dataset_str_name + " Varied Data Correlation.png")
     result_log.close()
     return result_log
 
 def main():
-    print("COMMAND LINE WORKS??")
-    dataset = sys.argv[1]
-    labelscol = int(sys.argv[2])
-    databegin = int(sys.argv[3])
-    dataend = int(sys.argv[4])
-    numclasses = int(sys.argv[5])
-    models_string = sys.argv[6]
-    graphing = sys.argv[7]
-    printing = sys.argv[8]
-    fname = sys.argv[9]
-    models = []
-    for m in models_string:
-        models.append(int(m))
-    log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, fname)
-    return log
+    if(len(sys.argv) > 5):
+        print("Running From the Command line")
+        dataset = sys.argv[1]
+        labelscol = int(sys.argv[2])
+        databegin = int(sys.argv[3])
+        dataend = int(sys.argv[4])
+        numclasses = int(sys.argv[5])
+        models_string = sys.argv[6]
+        graphing = sys.argv[7]
+        printing = sys.argv[8]
+        fname = sys.argv[9]
+        models = []
+        print("Printing: " + str(bool(printing)))
+        print("Graphing: " + str(bool(graphing)))
+        for m in models_string:
+            models.append(int(m))
+        log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, fname)
+        return log
+    else:
+        #Run play button code here.
+        return 0
+
+
 
 
 #run_test("datasets/pendigits.csv", -1, 0, 12, 10, [2, 4, 7], False, True, "pendigitsData.txt")
+
 
 main() 
 
