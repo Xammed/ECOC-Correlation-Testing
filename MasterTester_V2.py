@@ -796,7 +796,7 @@ datasets_Reference = [
 #Make sure model selection is native, edit it here.
 #Iterate data by making data objects, indexing them, then iterating.
 
-def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, endData, modelChoices, p):
+def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, endData, modelChoices, p, folds):
     ts = time.time()
     RunLabel = "VC_VD_"
     dataset_str_array = dataset.split("/")
@@ -829,7 +829,7 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
         updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
 
         CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(10)
+        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(folds)
         matrices = []
         matrixholder = []
         folds = []
@@ -928,7 +928,7 @@ def enablePrint():
     sys.stdout = sys.__stdout__
 
 
-def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, outfile):
+def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, folds, outfile):
     result_log = open(outfile, "w")
     corrplt = resplt.subplot()
     if(not printing):
@@ -954,11 +954,11 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
         pdomain.append(round(p, 2))
         counter = 0
         for model in model_array:
-            temp = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, [model], p)
+            temp = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, [model], p, folds)
             accuracy_array[counter].append(temp[0])
             correlation_array[counter].append(temp[1])
             counter += 1
-        mixed = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model_array, p)
+        mixed = getECOCBaselineAccuracies_VC_VD(datasetdir, listOfCBs, label_col, data_begin, data_end, model_array, p, folds)
         accuracy_array[len(accuracy_array)-1].append(mixed[0])
         correlation_array[len(correlation_array)-1].append(mixed[1])
         p = p - 0.1
@@ -1036,12 +1036,13 @@ def main():
         graphing = sys.argv[7]
         printing = sys.argv[8]
         fname = sys.argv[9]
+        folds = sys.argv[10]
         models = []
         print("Printing: " + str(bool(printing)))
         print("Graphing: " + str(bool(graphing)))
         for m in models_string:
             models.append(int(m))
-        log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, fname)
+        log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, folds, fname)
         return log
     else:
         #Run play button code here.
@@ -1056,5 +1057,5 @@ def main():
 main() 
 
 '''
-python3 MasterTester_V2.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 "./penDigits_cmd.txt"
+python3 MasterTester_V2.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 10 "./penDigits_cmd.txt"
 '''
