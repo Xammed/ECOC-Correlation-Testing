@@ -1,3 +1,4 @@
+
 from sklearn import preprocessing
 import pandas as pd
 from numpy import genfromtxt
@@ -796,7 +797,7 @@ datasets_Reference = [
 #Make sure model selection is native, edit it here.
 #Iterate data by making data objects, indexing them, then iterating.
 
-def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, endData, modelChoices, p, folds):
+def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, endData, modelChoices, p, f):
     ts = time.time()
     RunLabel = "VC_VD_"
     dataset_str_array = dataset.split("/")
@@ -829,7 +830,7 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
         updatedLabels, labelDictionary = dm.assignCodebook(labels, codebook)
 
         CV = CrossValidator(data, updatedLabels)
-        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(folds)
+        trainingsets, labels, testingsets, validsets = CV.ECOCValidator(f)
         matrices = []
         matrixholder = []
         folds = []
@@ -924,15 +925,22 @@ def blockPrint():
     sys.stdout = open(os.devnull, 'w')
 
 # Restore
-def enablePrint():
+def enablePrint(run_name):
     sys.stdout = sys.__stdout__
+    orig_stdout = sys.stdout
+    f = open(run_name, 'w')
+    sys.stdout = f
 
 
 def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, folds, outfile):
     result_log = open(outfile, "w")
     corrplt = resplt.subplot()
+    dataset_str_array = datasetdir.split("/")
+    dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
     if(not printing):
         blockPrint()
+    else:
+        enablePrint(dataset_str_name + "_" + str(model_array) + "_" + str(folds)+".txt")
     dataset_str_array = datasetdir.split("/")
     dataset_str_name = dataset_str_array[len(dataset_str_array)-1].strip(".csv")
     codebook = MatrixGeneration.GenerateMatrix(numclasses, numclasses)
@@ -1035,8 +1043,8 @@ def main():
         models_string = sys.argv[6]
         graphing = sys.argv[7]
         printing = sys.argv[8]
-        fname = sys.argv[9]
-        folds = sys.argv[10]
+        folds = int(sys.argv[9])
+        fname = sys.argv[10]
         models = []
         print("Printing: " + str(bool(printing)))
         print("Graphing: " + str(bool(graphing)))
@@ -1057,5 +1065,5 @@ def main():
 main() 
 
 '''
-python3 MasterTester_V2.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 10 "./penDigits_cmd.txt"
+python3 MasterTester.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 10 "./penDigits_cmd.txt"
 '''
