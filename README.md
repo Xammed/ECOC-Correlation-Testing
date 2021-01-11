@@ -1,7 +1,7 @@
 # ECOC-Correlation-Testing
 Programs for testing correlation between classifiers in ensemble learning via error correcting output codes.
 
-MasterTesterIs most up to date, use on the commandline as follows:
+MasterTester Is most up to date, use on the commandline as follows:
 
 python3 MasterTester.py "datasets/pendigits.csv" -1 0 12 10 247 1 0 10 "./penDigits_cmd.txt"
 
