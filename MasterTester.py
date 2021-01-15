@@ -932,7 +932,7 @@ def enablePrint(run_name):
     sys.stdout = f
 
 
-def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, folds, outfile):
+def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, folds, ps, pe, outfile):
     result_log = open(outfile, "w")
     corrplt = resplt.subplot()
     dataset_str_array = datasetdir.split("/")
@@ -956,8 +956,8 @@ def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_arra
     print("starting run")
 
     pdomain = []
-    p = 1.0
-    while p >= 0.2:
+    p = ps
+    while p >= pe:
         print("DATA PER CLASSIFIER " + str(p))
         pdomain.append(round(p, 2))
         counter = 0
@@ -1044,13 +1044,15 @@ def main():
         graphing = sys.argv[7]
         printing = sys.argv[8]
         folds = int(sys.argv[9])
-        fname = sys.argv[10]
+        starting_p = int(sys.argv[10])
+        ending_p = int(sys.argv[11])
+        fname = sys.argv[12]
         models = []
         print("Printing: " + str(bool(printing)))
         print("Graphing: " + str(bool(graphing)))
         for m in models_string:
             models.append(int(m))
-        log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, folds, fname)
+        log = run_test(dataset, labelscol, databegin, dataend, numclasses, models, graphing, printing, folds, starting_p, ending_p, fname)
         return log
     else:
         #Run play button code here.
