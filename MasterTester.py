@@ -368,13 +368,13 @@ class Trainer():
 
 
 
-    def trainClassifiersMultiple_VD(self, knownData, knownLabels, modelArray, p):
+    def trainClassifiersMultiple_VD(self, knownData, knownLabels, modelArray, p, fold_num = 0):
         trainedModels = []
         counter = 0
         for labels in knownLabels:
             model = modelArray[counter]
             packed = self.pack(knownData, labels)
-            pdata, plabels = self.unPackShuffled(packed, p, counter)
+            pdata, plabels = self.unPackShuffled(packed, p, (counter+fold_num))
             if model == 1:
                 classifier = svm.SVC(gamma='auto')
             elif model == 2:
@@ -856,7 +856,7 @@ def getECOCBaselineAccuracies_VC_VD(dataset, listOfCBs, labelCol, beginData, end
 
             # trainedModels = trainer.trainClassifiers(x_train, trainingLabels, i)
 
-            folds.append(trainer.trainClassifiersMultiple_VD(trainingset, trainingLabels, modelArray, p))
+            folds.append(trainer.trainClassifiersMultiple_VD(trainingset, trainingLabels, modelArray, p, counter))
             predictionsMixed, literalsMixed = trainer.getPredictions(predset, folds[counter])
             cMatrix = trainer.correlationMatrix(literalsMixed)
             matrixholder.append(cMatrix)
