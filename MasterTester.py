@@ -840,7 +840,7 @@ def enablePrint(run_name):
     sys.stdout = sys.__stdout__
     orig_stdout = sys.stdout
     f = open(run_name, 'w')
-    #sys.stdout = f
+    sys.stdout = f
 
 
 def run_test(datasetdir, label_col, data_begin, data_end, numclasses, model_array, graphing, printing, folds, ps, pe, outfile):
